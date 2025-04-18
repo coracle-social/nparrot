@@ -1,0 +1,8 @@
+This project, `nparrot`, is a Rust project that creates a simple CLI that has two functions:
+1. Send a message to a specific user
+2. Listen and wait for a message from a specific user, and then print that to stdout
+
+The messages are to be sent and received using the Nostr network, using the NIP-17 spec.
+
+This project uses the nostr-sdk to interact with the nostr network.
+
