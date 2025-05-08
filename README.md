@@ -1,9 +1,11 @@
 <div align="center">
   <img src="media/nparrot.png" alt="Logo" width="200" />
-  <h1>nparrot</h1>
+  <h1>nparrot-chat</h1>
 </div>
 
-`nparrot` (_"Nostr Parrot"_) is a convenient CLI tool that facilitates messaging over Nostr relay chat rooms.
+`nparrot-chat` (_"Nostr Parrot Chat"_) is a convenient CLI tool that facilitates messaging over Nostr relay chat rooms.
+
+NB: This project is a fork of [nparrot](https://github.com/Leaf-Computer/nparrot) by Daniel D'Aquino.
 
 This tool has a few use cases and benefits:
 - 🤖 Talk to your [Goose AI agent](https://block.github.io/goose/) via chat by using any Nostr client compatible [relays as groups](https://habla.news/u/hodlbod@coracle.social/1741286140797).
@@ -28,11 +30,13 @@ Make sure you have `cargo` 1.85 or higher installed. Then run:
 cargo build --release
 ```
 
-Then, you can find the executable binary on `./target/release/nparrot`, which you can run from there, or you can move it to another more convenient directory such as `~/.local/bin`.
+Then, you can find the executable binary on `./target/release/nparrot-chat`, which you can run from there, or you can move it to another more convenient directory such as `~/.local/bin`.
 
 # Talking to a goose AI agent via Nostr DMs
 
 A very cool use case for this tool is the ability to talk to a [goose AI agent](https://block.github.io/goose/) chat.
+
+NOTE: this isn't recommended unless you fully trust everyone who has access to the room `nparrot-chat` is listening on. Goose is an _agent_, which means it can read and write files on your computer.
 
 1. Copy `.env.template` to `.env`
 2. Download any Nostr client that supports NIP-C7 chat messages (e.g. [Flotilla](https://flotilla.social)).
@@ -45,12 +49,12 @@ nak key generate | nak encode nsec
 6. Take note of the `nsec` generated in the previous step and add it to `.env.` as `NSEC`.
 7. **Optional but recommended:** Send a message to test if the setup works.
 ```
-nparrot send "test"
+nparrot-chat send "test"
 ```
 8. **Optional but recommended:** Modify your `.goosehints` file, to help the AI agent do the right thing.
 9. Finally, run this command to start:
 ```
-nparrot onmessage 'goose run --with-extension "nparrot mcp" -i -'
+nparrot-chat onmessage 'goose run --with-extension "nparrot-chat mcp" -i -'
 ```
 10. Try sending a message from your app, and see your AI agent respond to it!
 
@@ -60,8 +64,8 @@ Notes:
 # Other commands
 
 ```
-$ nparrot --help
-Usage: nparrot --relay <RELAY> --room <ROOM> --nsec <NSEC> <COMMAND>
+$ nparrot-chat --help
+Usage: nparrot-chat --relay <RELAY> --room <ROOM> --nsec <NSEC> <COMMAND>
 
 Commands:
   send       Sends a private message via NIP-17. If the message is omitted, reads it from stdin
