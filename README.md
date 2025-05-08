@@ -3,20 +3,18 @@
   <h1>nparrot</h1>
 </div>
 
-`nparrot` (_"Nostr Parrot"_) is a convenient CLI tool that facilitates one-on-one DM messaging over Nostr ([NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md)).
+`nparrot` (_"Nostr Parrot"_) is a convenient CLI tool that facilitates messaging over Nostr relay chat rooms.
 
 This tool has a few use cases and benefits:
-- 🤖 Talk to your [Goose AI agent](https://block.github.io/goose/) via DMs from your phone by using any Nostr client compatible with [NIP-17](https://github.com/nostr-protocol/nips/blob/master/17.md).
-- 🔗 Easily integrate almost any other command line tool with Nostr DMs.
-- 🔔 Send yourself notifications easily from any environment that can run shell commands.
-- 🧪 Use this as a test or troubleshooting tool for NIP-17 messages.
+- 🤖 Talk to your [Goose AI agent](https://block.github.io/goose/) via chat by using any Nostr client compatible [relays as groups](https://habla.news/u/hodlbod@coracle.social/1741286140797).
+- 🔗 Easily integrate almost any other command line tool with Nostr chat messages (be careful about letting other people have access).
 
 Here are the features it includes:
-- ✅ **`send` command:** Sends a private NIP-17 direct message using specified arguments, or from stdin.
-- ✅ **`wait` command:** Listens and waits for the next NIP-17 direct message from a specific user, and prints it to stdout once received.
-- ✅ **`onmessage` command:** Continuously listens for NIP-17 direct messages, and for each one, it runs a shell command you specify.
-- ✅ **`listen` command:** Continuously listens for NIP-17 direct messages, and for each one, it prints it to stdout.
-- ✅ **`mcp` command:** MCP server that allows an AI agent to send a direct message to a specific user, or to wait for their message.
+- ✅ **`send` command:** Sends a NIP-C7 message using specified arguments, or from stdin.
+- ✅ **`wait` command:** Listens and waits for the next NIP-C7 message from a specific room, and prints it to stdout once received.
+- ✅ **`onmessage` command:** Continuously listens for NIP-C7 messages, and for each one, it runs a shell command you specify.
+- ✅ **`listen` command:** Continuously listens for NIP-C7 messages, and for each one, it prints it to stdout.
+- ✅ **`mcp` command:** MCP server that allows an AI agent to send a message to a specific user, or to wait for their message.
 
 ⚠️ **Note:** This is relatively new, experimental software. Please proceed with caution.
 
@@ -32,43 +30,27 @@ cargo build --release
 
 Then, you can find the executable binary on `./target/release/nparrot`, which you can run from there, or you can move it to another more convenient directory such as `~/.local/bin`.
 
-
-
 # Talking to a goose AI agent via Nostr DMs
 
-A very cool use case for this tool is the ability to talk to a [goose AI agent](https://block.github.io/goose/) on your phone, via Nostr DMs.
+A very cool use case for this tool is the ability to talk to a [goose AI agent](https://block.github.io/goose/) chat.
 
-1. Download any Nostr client that supports NIP-17 DMs on your phone (e.g. [0xchat](https://www.0xchat.com)).
-2. Go through onboarding.
-3. Go to your profile, and find your npub (This will be in the form `npub1...`). Take note of that, this will be your `TARGET_PUBKEY`.
-4. Also find and take note of the relays you are connected to. (e.g. `wss://relay.damus.io`). This will be your `RELAY_URL`.
-5. Now, switch to your computer.
-6. Generate a nostr private key (nsec) for your AI agent. If you have [`nak`](https://github.com/fiatjaf/nak), this can be done by simply running:
+1. Copy `.env.template` to `.env`
+2. Download any Nostr client that supports NIP-C7 chat messages (e.g. [Flotilla](https://flotilla.social)).
+3. Go through onboarding, and join a space. Add the space url to `.env` as `RELAY`.
+4. Find the room you'd like your bot to join and get the value of its `h` tag. Add this to `.env` as `ROOM`.
+5. Generate a nostr private key (nsec) for your AI agent. If you have [`nak`](https://github.com/fiatjaf/nak), this can be done by simply running:
 ```
 nak key generate | nak encode nsec
 ```
-7. Take note of the `nsec` generated in the previous step, this will be your `NSEC`.
-8. Now run these commands to set the variables on your environment (this helps make nparrot commands less verbose):
-```
-export TARGET_PUBKEY=<Your pubkey from step 3>
-export NSEC=<Your nsec from step 6>
-export RELAY_URL=<Your relay from step 4>
-```
-9. **Optional but recommended:** Send yourself a message to test if the setup works.
+6. Take note of the `nsec` generated in the previous step and add it to `.env.` as `NSEC`.
+7. **Optional but recommended:** Send a message to test if the setup works.
 ```
 nparrot send "test"
 ```
-9. **Optional but recommended:** Create a working directory where your AI agent will be working on, and `cd` to it.
-10. **Optional but recommended:** Create a `.goosehints` on your working directory, with context to help the AI agent understand it should send you a message via Nostr DMs and not directly to the terminal. Example:
-```markdown
-- Talk to the user over nostr messaging using the tool provided.
-- The user's name is Daniel
-- Before you start doing any task, send a message to the user first saying indicating you are working on it
-- You should always reply to the user over nostr, your normal output is not monitored.
-```
+8. **Optional but recommended:** Modify your `.goosehints` file, to help the AI agent do the right thing.
 9. Finally, run this command to start:
 ```
-nparrot onmessage 'sed "s/^/New message from Nostr: /" | goose run --name="test-session" --with-extension "nparrot mcp" -i -'
+nparrot onmessage 'goose run --with-extension "nparrot mcp" -i -'
 ```
 10. Try sending a message from your app, and see your AI agent respond to it!
 
@@ -79,7 +61,7 @@ Notes:
 
 ```
 $ nparrot --help
-Usage: nparrot [OPTIONS] --target-pubkey <TARGET_PUBKEY> --nsec <NSEC> <COMMAND>
+Usage: nparrot --relay <RELAY> --room <ROOM> --nsec <NSEC> <COMMAND>
 
 Commands:
   send       Sends a private message via NIP-17. If the message is omitted, reads it from stdin
@@ -90,11 +72,11 @@ Commands:
   help       Print this message or the help of the given subcommand(s)
 
 Options:
-      --target-pubkey <TARGET_PUBKEY>  Pubkey of the target user to talk to via DMs (in bech32 format) [env: TARGET_PUBKEY=]
-      --nsec <NSEC>                    The private key (nsec) identity to use on the DMs [env: NSEC=]
-      --relay <RELAY>                  Relay URL to use for sending/receiving messages [env: RELAY_URL=] [default: wss://relay.damus.io]
-  -h, --help                           Print help
-  -V, --version                        Print version
+      --relay <RELAY>  Relay URL to use for sending/receiving messages
+      --room <ROOM>    NIP 29 room ID to h-tag when sending/receiving messages
+      --nsec <NSEC>    The private key (nsec) identity to sign messages with
+  -h, --help           Print help
+  -V, --version        Print version
 ```
 
 ## Contributing

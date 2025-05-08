@@ -20,21 +20,22 @@ use utils::run_command_on_message;
 use utils::listen_for_messages;
 use log;
 use env_logger;
+use dotenv::dotenv;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
-    /// Pubkey of the target user to talk to via DMs (in bech32 format)
-    #[arg(long, env = "TARGET_PUBKEY")]
-    target_pubkey: String,
+    /// Relay URL to use for sending/receiving messages
+    #[arg(long, env = "RELAY")]
+    relay: String,
 
-    /// The private key (nsec) identity to use on the DMs
+    /// NIP 29 room ID to h-tag when sending/receiving messages
+    #[arg(long, env = "ROOM")]
+    room: String,
+
+    /// The private key (nsec) identity to sign messages with
     #[arg(long, env = "NSEC")]
     nsec: String,
-
-    /// Relay URL to use for sending/receiving messages
-    #[arg(long, env = "RELAY_URL", default_value = "wss://relay.damus.io")]
-    relay: String,
 
     #[command(subcommand)]
     command: Commands,
@@ -62,6 +63,10 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Load .env file if it exists
+    dotenv().ok();
+
+    // Parse command line arguments
     let args = Cli::parse();
     env_logger::init();
 
@@ -69,8 +74,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let keys = Keys::parse(&args.nsec)?;
     let our_pubkey = keys.public_key();
 
-    // Parse the target public key
-    let target_pk: PublicKey = args.target_pubkey.parse()?;
+    eprintln!("Running nparrot as {}", our_pubkey);
 
     // Create a client with our keys
     let client = Client::builder()
@@ -93,13 +97,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             };
 
-            eprintln!("Sending direct message to {}...", args.target_pubkey);
-            client.send_private_msg(target_pk, content, []).await?;
+            eprintln!("Sending chat message to {}...", args.room);
+            let builder = EventBuilder::new(Kind::Custom(9), content)
+                .tag(
+                    Tag::custom(
+                        TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::H)),
+                        vec![args.room.clone()]
+                    )
+                );
+            client.send_event_builder(builder).await?;
             eprintln!("Message sent!");
             exit(0);
         }
         Commands::Wait => {
-            let message = wait_for_message(&client, &our_pubkey, &target_pk).await?;
+            let message = wait_for_message(&client, &our_pubkey, &args.room).await?;
             println!("{}", message);
         },
         Commands::Listen => {
@@ -113,13 +124,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             listen_for_messages(
                 &client,
                 &our_pubkey,
-                &target_pk,
+                &args.room,
                 Arc::new(Mutex::new(message_callback)),
             ).await?;
         },
         Commands::Mcp => {
             // Create and serve our chat service
-            let service = Chat::new(client.clone(), our_pubkey, target_pk).serve(stdio()).await.inspect_err(|e| {
+            let service = Chat::new(client.clone(), our_pubkey, args.room).serve(stdio()).await.inspect_err(|e| {
                 log::error!("{e}");
             })?;
             service.waiting().await?;
@@ -128,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             log::info!(
                 "Listening for messages"
             );
-            run_command_on_message(&client, &our_pubkey, &target_pk, &shell_command).await?;
+            run_command_on_message(&client, &our_pubkey, &args.room, &shell_command).await?;
         }
     }
 

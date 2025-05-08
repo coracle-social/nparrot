@@ -17,16 +17,16 @@ pub struct SendMessageRequest {
 pub struct Chat {
     client: Client,
     our_pubkey: PublicKey,
-    target_pubkey: PublicKey,
+    room: String,
 }
 
 #[tool(tool_box)]
 impl Chat {
-    pub fn new(client: Client, our_pubkey: PublicKey, target_pubkey: PublicKey) -> Self {
+    pub fn new(client: Client, our_pubkey: PublicKey, room: String) -> Self {
         Self {
             client,
             our_pubkey,
-            target_pubkey,
+            room,
         }
     }
 
@@ -35,8 +35,15 @@ impl Chat {
         &self,
         #[tool(aggr)] SendMessageRequest { message }: SendMessageRequest,
     ) -> Result<CallToolResult, RmcpError> {
+        let builder = EventBuilder::new(Kind::Custom(9), message)
+            .tag(
+                Tag::custom(
+                    TagKind::SingleLetter(SingleLetterTag::lowercase(Alphabet::H)),
+                    vec![self.room.clone()]
+                )
+            );
         self.client
-            .send_private_msg(self.target_pubkey, message, [])
+            .send_event_builder(builder)
             .await
             .map_err(|e| RmcpError::internal_error(e.to_string(), None))?;
         Ok(CallToolResult::success(vec![Content::text("Sent message")]))
@@ -44,7 +51,7 @@ impl Chat {
 
     #[tool(description = "Listen and wait for the user's next message")]
     async fn wait(&self) -> Result<CallToolResult, RmcpError> {
-        let message = wait_for_message(&self.client, &self.our_pubkey, &self.target_pubkey)
+        let message = wait_for_message(&self.client, &self.our_pubkey, &self.room)
             .await
             .map_err(|e| RmcpError::internal_error(e.to_string(), None))?;
 

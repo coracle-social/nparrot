@@ -9,7 +9,7 @@ use log;
 pub async fn run_command_on_message(
     client: &Client,
     our_pubkey: &PublicKey,
-    sender_pubkey: &PublicKey,
+    room: &str,
     shell_command: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Shared state for the current child process
@@ -33,7 +33,7 @@ pub async fn run_command_on_message(
     let callback_arc = Arc::new(Mutex::new(callback));
 
     // Hand off to the listener
-    listen_for_messages(client, our_pubkey, sender_pubkey, callback_arc).await?;
+    listen_for_messages(client, our_pubkey, room, callback_arc).await?;
     Ok(())
 }
 
@@ -57,7 +57,7 @@ async fn handle_message(handle: &process_management::ChildHandle, cmd: &str, msg
 pub async fn listen_for_messages<F, Fut>(
     client: &Client,
     our_pubkey: &PublicKey,
-    sender_pubkey: &PublicKey,
+    room: &str,
     callback: Arc<Mutex<F>>,
 ) -> Result<(), Box<dyn std::error::Error>>
 where
@@ -65,17 +65,19 @@ where
     F: Fn(String) -> Fut + Send + Sync + 'static,
     Fut: Future<Output = bool> + Send + 'static,
 {
-    let subscription = Filter::new()
-        .pubkey(our_pubkey.clone()) // messages intended for us
-        .kind(Kind::GiftWrap)
+    let filter = Filter::new()
+        .custom_tag(SingleLetterTag::lowercase(Alphabet::H), room)
+        .kind(Kind::Custom(9))
         .limit(0); // 0 means only new events
 
-    client.subscribe(subscription, None).await?;
+    client.subscribe(filter, None).await?;
 
     let callback_clone = callback.clone();
+
     client
         .handle_notifications(move |notification| {
             let callback_clone = callback_clone.clone();
+
             async move {
                 // only handle event notifications
                 let event = match notification {
@@ -83,21 +85,13 @@ where
                     _ => return Ok(false),
                 };
 
-                // only handle GiftWrap events
-                if event.kind != Kind::GiftWrap {
-                    return Ok(false);
+                // don't respond to our own messages
+                if event.pubkey == our_pubkey.clone() {
+                    return Ok(false)
                 }
 
-                // try to unwrap the GiftWrap envelope
-                if let Ok(UnwrappedGift { rumor, sender }) = client.unwrap_gift_wrap(&event).await {
-                    // only process private DMs from our target sender
-                    if sender == *sender_pubkey && rumor.kind == Kind::PrivateDirectMessage {
-                        let guard = callback_clone.lock().await;
-                        return Ok(guard(rumor.content).await)
-                    }
-                }
-
-                Ok(false)
+                let guard = callback_clone.lock().await;
+                return Ok(guard(event.content).await)
             }
         })
         .await?;
@@ -109,7 +103,7 @@ where
 pub async fn wait_for_message(
     client: &Client,
     our_pubkey: &PublicKey,
-    from_user: &PublicKey,
+    room: &str,
 ) -> Result<String, Box<dyn std::error::Error>> {
     let message_mutex = Arc::new(Mutex::new(None));
 
@@ -128,7 +122,7 @@ pub async fn wait_for_message(
     listen_for_messages(
         client,
         our_pubkey,
-        from_user,
+        room,
         Arc::new(Mutex::new(message_callback)),
     )
     .await?;
